@@ -30,36 +30,124 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
 st.markdown("""
 <style>
+/* 전체 배경 및 기본 글자 */
 .stApp {
-    background-color: #0b1220;
-    color: #e5e7eb;
+    background-color: #0B1220;
+    color: #FFFFFF;
 }
+
+html, body, [class*="css"] {
+    color: #FFFFFF !important;
+}
+
+/* 제목 */
+h1, h2, h3, h4, h5, h6 {
+    color: #FFFFFF !important;
+}
+
+/* 일반 텍스트 */
+p, span, label, li, small, strong {
+    color: #E2E8F0 !important;
+}
+
+/* 사이드바 */
 [data-testid="stSidebar"] {
-    background-color: #111c2e;
+    background-color: #111C2E;
 }
+
+[data-testid="stSidebar"] * {
+    color: #FFFFFF !important;
+}
+
+/* 입력창 */
+input, textarea {
+    background-color: #17243A !important;
+    color: #FFFFFF !important;
+    border: 1px solid #475569 !important;
+}
+
+/* 선택 메뉴 */
+div[data-baseweb="select"] * {
+    color: #FFFFFF !important;
+}
+
+div[data-baseweb="select"] > div {
+    background-color: #17243A !important;
+}
+
+/* 숫자 입력 */
+div[data-testid="stNumberInput"] input {
+    color: #FFFFFF !important;
+    background-color: #17243A !important;
+}
+
+/* 데이터프레임 */
+[data-testid="stDataFrame"] {
+    color: #FFFFFF !important;
+}
+
+/* 메트릭 카드 */
 [data-testid="stMetric"] {
-    background-color: #17243a;
-    border: 1px solid #293b55;
-    padding: 15px;
+    background-color: #17243A;
+    border: 1px solid #334155;
     border-radius: 10px;
+    padding: 15px;
 }
-div[data-testid="stMetricValue"] {
-    color: #60a5fa;
+
+[data-testid="stMetricLabel"] {
+    color: #CBD5E1 !important;
 }
-.stButton > button {
-    background-color: #2563eb;
-    color: white;
-    border: none;
+
+[data-testid="stMetricValue"] {
+    color: #60A5FA !important;
+}
+
+/* 버튼 */
+.stButton button,
+.stDownloadButton button {
+    background-color: #2563EB !important;
+    color: #FFFFFF !important;
+    border: none !important;
     border-radius: 7px;
 }
-.stButton > button:hover {
-    background-color: #1d4ed8;
-    color: white;
+
+.stButton button:hover,
+.stDownloadButton button:hover {
+    background-color: #1D4ED8 !important;
+    color: #FFFFFF !important;
 }
-h1, h2, h3 {
-    color: #e2e8f0;
+
+/* 안내창 */
+div[data-testid="stAlert"] * {
+    color: #FFFFFF !important;
+}
+
+/* 탭 */
+button[data-baseweb="tab"] {
+    color: #CBD5E1 !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #60A5FA !important;
+}
+
+/* 체크박스와 라디오 */
+[data-testid="stCheckbox"] label,
+[data-testid="stRadio"] label {
+    color: #FFFFFF !important;
+}
+
+/* 구분선 */
+hr {
+    border-color: #334155 !important;
+}
+
+/* 캡션 */
+[data-testid="stCaptionContainer"] * {
+    color: #CBD5E1 !important;
 }
 </style>
 """, unsafe_allow_html=True)
