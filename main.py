@@ -85,6 +85,13 @@ div[data-baseweb="select"] *, [role="option"] { color: #e5edf4 !important; }
     border-left: 4px solid #38bdf8 !important;
     border-radius: 7px !important;
 }
+[data-testid="stAlertContainer"] {
+    background: #152231 !important;
+    color: #e1eaf1 !important;
+    border-radius: 6px !important;
+}
+[data-testid^="stAlertContent"] { color: #e1eaf1 !important; }
+[data-testid^="stAlertContent"] * { color: #e1eaf1 !important; }
 [data-testid="stAlert"] * { color: #e1eaf1 !important; }
 [data-testid="stAlert"] svg { color: #38bdf8 !important; }
 button[data-baseweb="tab"] { color: #a9bac9 !important; }
