@@ -68,6 +68,22 @@ div[data-baseweb="select"] > div {
 div[data-baseweb="select"] *, [role="option"] { color: #e5edf4 !important; }
 [data-testid="stNumberInput"] input { color: #e5edf4 !important; }
 [data-testid="stDataFrame"] { border: 1px solid #26394b; border-radius: 8px; }
+[data-testid="stFileUploaderDropzone"] {
+    background: #111c29 !important;
+    border: 1px dashed #52677c !important;
+    color: #dce6ef !important;
+}
+[data-testid="stFileUploaderDropzone"] * { color: #dce6ef !important; }
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] {
+    background: #1c2b3b !important;
+    color: #e5edf4 !important;
+    border: 1px solid #42576b !important;
+    border-radius: 6px;
+}
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]:hover {
+    background: #26394b !important;
+    border-color: #38b7b2 !important;
+}
 .stButton button, .stDownloadButton button, [data-testid="stFormSubmitButton"] button {
     background: #147d83 !important;
     color: #f5fbfc !important;
