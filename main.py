@@ -20,7 +20,7 @@ from datetime import datetime
 import os
 
 # =====================================================
-# 1. 기본 설정 및 디자인
+# 기본 설정 및 디자인
 # =====================================================
 
 st.set_page_config(
@@ -33,128 +33,71 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-/* 전체 배경 및 기본 글자 */
-.stApp {
-    background-color: #0B1220;
-    color: #FFFFFF;
+:root { color-scheme: dark; }
+.stApp, [data-testid="stAppViewContainer"] {
+    background: #0b1118;
+    color: #dce6ef;
 }
-
-html, body, [class*="css"] {
-    color: #FFFFFF !important;
-}
-
-/* 제목 */
-h1, h2, h3, h4, h5, h6 {
-    color: #FFFFFF !important;
-}
-
-/* 일반 텍스트 */
-p, span, label, li, small, strong {
-    color: #E2E8F0 !important;
-}
-
-/* 사이드바 */
+[data-testid="stHeader"] { background: rgba(11, 17, 24, 0.92); }
 [data-testid="stSidebar"] {
-    background-color: #111C2E;
+    background: #111c2a;
+    border-right: 1px solid #263747;
 }
-
-[data-testid="stSidebar"] * {
-    color: #FFFFFF !important;
-}
-
-/* 입력창 */
-input, textarea {
-    background-color: #17243A !important;
-    color: #FFFFFF !important;
-    border: 1px solid #475569 !important;
-}
-
-/* 선택 메뉴 */
-div[data-baseweb="select"] * {
-    color: #FFFFFF !important;
-}
-
-div[data-baseweb="select"] > div {
-    background-color: #17243A !important;
-}
-
-/* 숫자 입력 */
-div[data-testid="stNumberInput"] input {
-    color: #FFFFFF !important;
-    background-color: #17243A !important;
-}
-
-/* 데이터프레임 */
-[data-testid="stDataFrame"] {
-    color: #FFFFFF !important;
-}
-
-/* 메트릭 카드 */
+[data-testid="stSidebar"] * { color: #dce6ef; }
+h1, h2, h3, h4, h5, h6 { color: #f4f7fa !important; letter-spacing: 0.01em; }
+p, span, label, li, small, strong { color: #c6d2de; }
+[data-testid="stCaptionContainer"] * { color: #91a4b7 !important; }
 [data-testid="stMetric"] {
-    background-color: #17243A;
-    border: 1px solid #334155;
-    border-radius: 10px;
-    padding: 15px;
+    background: #121e2b;
+    border: 1px solid #26394b;
+    border-top: 3px solid #2dd4bf;
+    border-radius: 8px;
+    padding: 16px;
 }
-
-[data-testid="stMetricLabel"] {
-    color: #CBD5E1 !important;
+[data-testid="stMetricLabel"] { color: #a9bac9 !important; }
+[data-testid="stMetricValue"] { color: #e8f2f8 !important; }
+input, textarea, [data-baseweb="input"] input {
+    background: #111c29 !important;
+    color: #e5edf4 !important;
+    border: 1px solid #34495c !important;
 }
-
-[data-testid="stMetricValue"] {
-    color: #60A5FA !important;
+div[data-baseweb="select"] > div {
+    background: #111c29 !important;
+    border-color: #34495c !important;
 }
-
-/* 버튼 */
-.stButton button,
-.stDownloadButton button {
-    background-color: #2563EB !important;
-    color: #FFFFFF !important;
-    border: none !important;
-    border-radius: 7px;
+div[data-baseweb="select"] *, [role="option"] { color: #e5edf4 !important; }
+[data-testid="stNumberInput"] input { color: #e5edf4 !important; }
+[data-testid="stDataFrame"] { border: 1px solid #26394b; border-radius: 8px; }
+.stButton button, .stDownloadButton button, [data-testid="stFormSubmitButton"] button {
+    background: #147d83 !important;
+    color: #f5fbfc !important;
+    border: 1px solid #23969a !important;
+    border-radius: 6px;
+    font-weight: 600;
 }
-
-.stButton button:hover,
-.stDownloadButton button:hover {
-    background-color: #1D4ED8 !important;
-    color: #FFFFFF !important;
+.stButton button:hover, .stDownloadButton button:hover, [data-testid="stFormSubmitButton"] button:hover {
+    background: #0f666c !important;
+    border-color: #38b7b2 !important;
 }
-
-/* 안내창 */
-div[data-testid="stAlert"] * {
-    color: #FFFFFF !important;
+[data-testid="stAlert"] {
+    background: #152231 !important;
+    border: 1px solid #2b4255 !important;
+    border-left: 4px solid #38bdf8 !important;
+    border-radius: 7px !important;
 }
-
-/* 탭 */
-button[data-baseweb="tab"] {
-    color: #CBD5E1 !important;
-}
-
-button[data-baseweb="tab"][aria-selected="true"] {
-    color: #60A5FA !important;
-}
-
-/* 체크박스와 라디오 */
-[data-testid="stCheckbox"] label,
-[data-testid="stRadio"] label {
-    color: #FFFFFF !important;
-}
-
-/* 구분선 */
-hr {
-    border-color: #334155 !important;
-}
-
-/* 캡션 */
-[data-testid="stCaptionContainer"] * {
-    color: #CBD5E1 !important;
-}
+[data-testid="stAlert"] * { color: #e1eaf1 !important; }
+[data-testid="stAlert"] svg { color: #38bdf8 !important; }
+button[data-baseweb="tab"] { color: #a9bac9 !important; }
+button[data-baseweb="tab"][aria-selected="true"] { color: #5eead4 !important; }
+[data-testid="stCheckbox"] label, [data-testid="stRadio"] label { color: #dce6ef !important; }
+[data-testid="stRadio"] [aria-checked="true"] { color: #5eead4 !important; }
+hr { border-color: #263747 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 
 # =====================================================
-# 2. 데이터 및 세션 초기화
+# 데이터 및 세션 초기화
 # =====================================================
 
 if "df" not in st.session_state:
@@ -183,7 +126,7 @@ if "prediction_history" not in st.session_state:
 
 
 # =====================================================
-# 3. 공통 변수
+# 공통 변수
 # =====================================================
 
 TARGET = "Tool wear [min]"
@@ -256,7 +199,7 @@ def clean_data(data):
 
 
 # =====================================================
-# 4. 사이드바 메뉴
+# 사이드바 메뉴
 # =====================================================
 
 st.sidebar.markdown("# ⚙️ PM SYSTEM")
@@ -294,7 +237,7 @@ st.sidebar.caption("Predictive Maintenance v1.0")
 
 
 # =====================================================
-# 5. 공통 데이터 안내
+# 공통 데이터 안내
 # =====================================================
 
 df = get_data()
@@ -305,7 +248,7 @@ if df is not None:
 
 
 # =====================================================
-# 6. 메인 대시보드
+# 메인 대시보드
 # =====================================================
 
 if menu == "🏠 메인 대시보드":
@@ -374,7 +317,7 @@ if menu == "🏠 메인 대시보드":
 
 
 # =====================================================
-# 7. 데이터 관리
+# 데이터 관리
 # =====================================================
 
 elif menu == "📁 데이터 관리":
@@ -414,7 +357,7 @@ elif menu == "📁 데이터 관리":
 
         st.divider()
 
-        st.subheader("1. 데이터 미리보기")
+        st.subheader("데이터 미리보기")
         st.dataframe(df.head(100), use_container_width=True)
 
         c1, c2, c3 = st.columns(3)
@@ -422,14 +365,14 @@ elif menu == "📁 데이터 관리":
         c2.metric("열 개수", len(df.columns))
         c3.metric("중복 행", int(df.duplicated().sum()))
 
-        st.subheader("2. 데이터 유형")
+        st.subheader("데이터 유형")
         types = pd.DataFrame({
             "Column": df.columns,
             "Data Type": [str(x) for x in df.dtypes]
         })
         st.dataframe(types, use_container_width=True)
 
-        st.subheader("3. 결측치 분석")
+        st.subheader("결측치 분석")
 
         missing = df.isnull().sum()
 
@@ -450,7 +393,7 @@ elif menu == "📁 데이터 관리":
         else:
             st.success("결측치가 없습니다.")
 
-        st.subheader("4. 이상치 탐지 (IQR)")
+        st.subheader("이상치 탐지 (IQR)")
 
         numeric_cols = df.select_dtypes(
             include=np.number
@@ -489,7 +432,7 @@ elif menu == "📁 데이터 관리":
                 "반드시 오류 데이터라는 뜻은 아닙니다."
             )
 
-        st.subheader("5. 데이터 필터링")
+        st.subheader("데이터 필터링")
 
         filtered = df.copy()
 
@@ -532,7 +475,7 @@ elif menu == "📁 데이터 관리":
 
 
 # =====================================================
-# 8. 데이터 분석 및 시각화
+# 데이터 분석 및 시각화
 # =====================================================
 
 elif menu == "📊 데이터 분석":
@@ -544,7 +487,7 @@ elif menu == "📊 데이터 분석":
         st.warning("먼저 데이터를 업로드하세요.")
     else:
 
-        st.subheader("6. 상관관계 히트맵")
+        st.subheader("상관관계 히트맵")
 
         numeric = df.select_dtypes(
             include=np.number
@@ -575,7 +518,7 @@ elif menu == "📊 데이터 분석":
 
         st.divider()
 
-        st.subheader("7. 제품 유형별 마모 시간 비교")
+        st.subheader("제품 유형별 마모 시간 비교")
 
         if "Type" in df.columns and TARGET in df.columns:
 
@@ -598,7 +541,7 @@ elif menu == "📊 데이터 분석":
 
         st.divider()
 
-        st.subheader("8. 변수별 산점도")
+        st.subheader("변수별 산점도")
 
         available = [
             c for c in NUMERIC_FEATURES
@@ -625,7 +568,7 @@ elif menu == "📊 데이터 분석":
 
         st.divider()
 
-        st.subheader("9. 데이터 분포 및 기초통계")
+        st.subheader("데이터 분포 및 기초통계")
 
         selected_stat = st.selectbox(
             "통계 분석 변수",
@@ -653,7 +596,7 @@ elif menu == "📊 데이터 분석":
 
 
 # =====================================================
-# 9. AI 모델 실험실
+# AI 모델 실험실
 # =====================================================
 
 elif menu == "🧠 AI 모델 실험실":
@@ -674,7 +617,7 @@ elif menu == "🧠 AI 모델 실험실":
             if c in df.columns
         ]
 
-        st.subheader("10. 독립변수 선택")
+        st.subheader("독립변수 선택")
 
         selected_features = st.multiselect(
             "모델 학습에 사용할 변수",
@@ -682,7 +625,7 @@ elif menu == "🧠 AI 모델 실험실":
             default=available
         )
 
-        st.subheader("11. 데이터 분할 설정")
+        st.subheader("데이터 분할 설정")
 
         test_ratio = st.slider(
             "테스트 데이터 비율 (%)",
@@ -694,7 +637,7 @@ elif menu == "🧠 AI 모델 실험실":
             f"테스트 데이터 {test_ratio}%"
         )
 
-        st.subheader("12. 선형회귀 모델 학습")
+        st.subheader("선형회귀 모델 학습")
 
         if st.button("🚀 모델 학습 시작", use_container_width=True):
 
@@ -786,7 +729,7 @@ elif menu == "🧠 AI 모델 실험실":
         if evaluation is not None:
 
             st.divider()
-            st.subheader("13. 모델 평가 결과")
+            st.subheader("모델 평가 결과")
 
             c1, c2, c3, c4 = st.columns(4)
 
@@ -813,7 +756,7 @@ elif menu == "🧠 AI 모델 실험실":
                 "일반적으로 1에 가까울수록 좋습니다."
             )
 
-            st.subheader("14. 실제값과 예측값 비교")
+            st.subheader("실제값과 예측값 비교")
 
             test = st.session_state.test_data
 
@@ -924,7 +867,7 @@ elif menu == "🧠 AI 모델 실험실":
 
 
 # =====================================================
-# 10. 공구 마모 예측 센터
+# 공구 마모 예측 센터
 # =====================================================
 
 elif menu == "⚙️ 공구 마모 예측":
@@ -1088,7 +1031,7 @@ elif menu == "⚙️ 공구 마모 예측":
 
 
 # =====================================================
-# 11. 설비 및 정비 관리
+# 설비 및 정비 관리
 # =====================================================
 
 elif menu == "🔧 설비 및 정비 관리":
@@ -1167,7 +1110,7 @@ elif menu == "🔧 설비 및 정비 관리":
             "삭제할 기록 선택",
             range(len(log_df)),
             format_func=lambda x:
-                f"{x+1}. {log_df.iloc[x]['Machine ID']} "
+                f"{log_df.iloc[x]['Machine ID']} "
                 f"- {log_df.iloc[x]['Date']}"
         )
 
@@ -1215,7 +1158,7 @@ elif menu == "🔧 설비 및 정비 관리":
 
 
 # =====================================================
-# 12. 분석 보고서
+# 분석 보고서
 # =====================================================
 
 elif menu == "📄 분석 보고서":
@@ -1302,7 +1245,7 @@ elif menu == "📄 분석 보고서":
 
 
 # =====================================================
-# 13. 하단 정보
+# 하단 정보
 # =====================================================
 
 st.sidebar.divider()
