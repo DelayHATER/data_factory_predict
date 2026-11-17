@@ -678,6 +678,98 @@ menu = st.sidebar.radio(
         "📄 분석 보고서"
     ]
 )
+# ==========================================
+# 사이드바 하단 시스템 상태 표시
+# ==========================================
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🖥️ SYSTEM STATUS")
+
+# 데이터 연결 상태
+data_connected = (
+    st.session_state.df is not None
+    and not st.session_state.df.empty
+)
+
+# AI 모델 학습 상태
+ai_trained = st.session_state.model is not None
+
+# 데이터베이스 연결 상태
+try:
+    conn = get_connection()
+    conn.execute("SELECT 1")
+    conn.close()
+    db_connected = True
+except Exception:
+    db_connected = False
+
+# 상태 표시 함수
+def status_item(name, is_active, active_text, inactive_text):
+    color = "#22c55e" if is_active else "#ef4444"
+    status = active_text if is_active else inactive_text
+
+    st.sidebar.markdown(
+        f"""
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            padding:9px 11px;
+            margin-bottom:7px;
+            background:#141f33;
+            border:1px solid #263750;
+            border-radius:8px;
+        ">
+            <span style="color:#ffffff; font-size:13px;">
+                {name}
+            </span>
+            <span style="
+                color:{color};
+                font-size:12px;
+                font-weight:700;
+            ">
+                ● {status}
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+status_item(
+    "데이터 연동",
+    data_connected,
+    "CONNECTED",
+    "DISCONNECTED"
+)
+
+status_item(
+    "AI 모델 학습",
+    ai_trained,
+    "TRAINED",
+    "NOT TRAINED"
+)
+
+status_item(
+    "DB 저장소",
+    db_connected,
+    "ONLINE",
+    "OFFLINE"
+)
+
+st.sidebar.markdown(
+    """
+    <div style="
+        text-align:center;
+        color:#94a3b8;
+        font-size:10px;
+        margin-top:12px;
+    ">
+        INDUSTRIAL AI SYSTEM<br>
+        Monitoring Dashboard v1.0
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 st.sidebar.divider()
 st.sidebar.caption("AI4I 2020 Predictive Maintenance Dataset")
