@@ -1,236 +1,419 @@
 
-import streamlit as st
-import pandas as pd
+import os
+import io
+import json
+import sqlite3
+from datetime import datetime
+
 import numpy as np
+import pandas as pd
+import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import (
-    mean_absolute_error,
-    mean_squared_error,
-    r2_score
-)
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from datetime import datetime
-import os
 
-# =====================================================
-# 기본 설정 및 디자인
-# =====================================================
+# =========================================================
+# 1. 기본 설정
+# =========================================================
 
 st.set_page_config(
-    page_title="Predictive Maintenance System",
+    page_title="Industrial AI | Tool Wear Monitor",
     page_icon="⚙️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-
-st.markdown("""
-<style>
-:root { color-scheme: dark; }
-.stApp, [data-testid="stAppViewContainer"] {
-    background: #0b1118;
-    color: #dce6ef;
-}
-[data-testid="stHeader"] { background: rgba(11, 17, 24, 0.92); }
-[data-testid="stSidebar"] {
-    background: #111c2a;
-    border-right: 1px solid #263747;
-}
-[data-testid="stSidebar"] * { color: #dce6ef; }
-h1, h2, h3, h4, h5, h6 { color: #f4f7fa !important; letter-spacing: 0.01em; }
-p, span, label, li, small, strong { color: #c6d2de; }
-[data-testid="stCaptionContainer"] * { color: #91a4b7 !important; }
-[data-testid="stMetric"] {
-    background: #121e2b;
-    border: 1px solid #26394b;
-    border-top: 3px solid #2dd4bf;
-    border-radius: 8px;
-    padding: 16px;
-}
-[data-testid="stMetricLabel"] { color: #a9bac9 !important; }
-[data-testid="stMetricValue"] { color: #e8f2f8 !important; }
-input, textarea, [data-baseweb="input"] input {
-    background: #111c29 !important;
-    color: #e5edf4 !important;
-    border: 1px solid #34495c !important;
-}
-div[data-baseweb="select"] > div {
-    background: #111c29 !important;
-    border-color: #34495c !important;
-}
-div[data-baseweb="select"] *, [role="option"] { color: #e5edf4 !important; }
-[data-testid="stNumberInput"] input { color: #e5edf4 !important; }
-[data-testid="stDataFrame"] { border: 1px solid #26394b; border-radius: 8px; }
-[data-testid="stFileUploaderDropzone"] {
-    background: #111c29 !important;
-    border: 1px dashed #52677c !important;
-    color: #dce6ef !important;
-}
-[data-testid="stFileUploaderDropzone"] * { color: #dce6ef !important; }
-[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] {
-    background: #1c2b3b !important;
-    color: #e5edf4 !important;
-    border: 1px solid #42576b !important;
-    border-radius: 6px;
-}
-[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]:hover {
-    background: #26394b !important;
-    border-color: #38b7b2 !important;
-}
-.stButton button, .stDownloadButton button, [data-testid="stFormSubmitButton"] button {
-    background: #147d83 !important;
-    color: #f5fbfc !important;
-    border: 1px solid #23969a !important;
-    border-radius: 6px;
-    font-weight: 600;
-}
-.stButton button:hover, .stDownloadButton button:hover, [data-testid="stFormSubmitButton"] button:hover {
-    background: #0f666c !important;
-    border-color: #38b7b2 !important;
-}
-[data-testid="stAlert"] {
-    background: #152231 !important;
-    border: 1px solid #2b4255 !important;
-    border-left: 4px solid #38bdf8 !important;
-    border-radius: 7px !important;
-}
-[data-testid="stAlertContainer"] {
-    background: #152231 !important;
-    color: #e1eaf1 !important;
-    border-radius: 6px !important;
-}
-[data-testid^="stAlertContent"] { color: #e1eaf1 !important; }
-[data-testid^="stAlertContent"] * { color: #e1eaf1 !important; }
-[data-testid="stAlert"] * { color: #e1eaf1 !important; }
-[data-testid="stAlert"] svg { color: #38bdf8 !important; }
-button[data-baseweb="tab"] { color: #a9bac9 !important; }
-button[data-baseweb="tab"][aria-selected="true"] { color: #5eead4 !important; }
-[data-testid="stCheckbox"] label, [data-testid="stRadio"] label { color: #dce6ef !important; }
-[data-testid="stRadio"] [aria-checked="true"] { color: #5eead4 !important; }
-hr { border-color: #263747 !important; }
-</style>
-""", unsafe_allow_html=True)
-
-
-# =====================================================
-# 데이터 및 세션 초기화
-# =====================================================
-
-if "df" not in st.session_state:
-    st.session_state.df = None
-
-if "model" not in st.session_state:
-    st.session_state.model = None
-
-if "features" not in st.session_state:
-    st.session_state.features = []
-
-if "experiments" not in st.session_state:
-    st.session_state.experiments = []
-
-if "maintenance_log" not in st.session_state:
-    st.session_state.maintenance_log = []
-
-if "evaluation" not in st.session_state:
-    st.session_state.evaluation = None
-
-if "test_data" not in st.session_state:
-    st.session_state.test_data = None
-
-if "prediction_history" not in st.session_state:
-    st.session_state.prediction_history = []
-
-
-# =====================================================
-# 공통 변수
-# =====================================================
+DB_PATH = "industrial_records.db"
+DEFAULT_DATA_PATH = "ai4i2020.csv"
 
 TARGET = "Tool wear [min]"
 
-NUMERIC_FEATURES = [
+ALL_FEATURES = [
+    "Type",
     "Air temperature [K]",
     "Process temperature [K]",
     "Rotational speed [rpm]",
     "Torque [Nm]"
 ]
 
-ALL_FEATURES = ["Type"] + NUMERIC_FEATURES
+NUMERIC_FEATURES = [
+    "Air temperature [K]",
+    "Process temperature [K]",
+    "Rotational speed [rpm]",
+    "Torque [Nm]",
+    "Tool wear [min]"
+]
+
+st.markdown("""
+<style>
+.stApp {
+    background-color: #0b1420;
+    color: #e6edf3;
+}
+[data-testid="stSidebar"] {
+    background-color: #101e2d;
+    border-right: 1px solid #263b50;
+}
+h1, h2, h3 {
+    color: #e8f1fa;
+}
+.metric-card {
+    background: #14263a;
+    border: 1px solid #29435d;
+    padding: 18px;
+    border-radius: 12px;
+}
+div[data-testid="stMetric"] {
+    background: #14263a;
+    border: 1px solid #29435d;
+    padding: 15px;
+    border-radius: 10px;
+}
+.stButton > button {
+    background-color: #176b87;
+    color: white;
+    border: none;
+    border-radius: 7px;
+}
+.stButton > button:hover {
+    background-color: #2186a5;
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
-def get_data():
-    return st.session_state.df
+# =========================================================
+# 2. 데이터베이스
+# =========================================================
+
+def get_connection():
+    return sqlite3.connect(DB_PATH, check_same_thread=False)
 
 
-def get_model():
-    return st.session_state.model
+def initialize_database():
+    with get_connection() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS predictions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT,
+                prediction REAL,
+                input_data TEXT,
+                source TEXT
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS experiments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT,
+                experiment_name TEXT,
+                features TEXT,
+                test_size REAL,
+                mae REAL,
+                mse REAL,
+                rmse REAL,
+                r2 REAL
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS maintenance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT,
+                equipment TEXT,
+                maintenance_type TEXT,
+                wear_value REAL,
+                description TEXT
+            )
+        """)
 
 
-def make_pipeline(features, data):
-    categorical = [
-        col for col in features
-        if data[col].dtype == "object"
-        or isinstance(data[col].dtype, pd.CategoricalDtype)
-    ]
+def save_prediction(prediction, input_data, source="직접 예측"):
+    with get_connection() as conn:
+        conn.execute("""
+            INSERT INTO predictions
+            (created_at, prediction, input_data, source)
+            VALUES (?, ?, ?, ?)
+        """, (
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            float(prediction),
+            json.dumps(input_data, ensure_ascii=False),
+            source
+        ))
 
-    numeric = [
-        col for col in features
-        if col not in categorical
-    ]
 
-    transformers = []
-
-    if numeric:
-        transformers.append(
-            ("numeric", "passthrough", numeric)
+def load_predictions():
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM predictions ORDER BY id DESC",
+            conn
         )
 
-    if categorical:
-        transformers.append(
-            ("categorical",
-             OneHotEncoder(handle_unknown="ignore"),
-             categorical)
+
+def save_experiment(name, features, test_size, mae, mse, rmse, r2):
+    with get_connection() as conn:
+        conn.execute("""
+            INSERT INTO experiments
+            (created_at, experiment_name, features, test_size,
+             mae, mse, rmse, r2)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            name,
+            json.dumps(features, ensure_ascii=False),
+            float(test_size),
+            float(mae),
+            float(mse),
+            float(rmse),
+            float(r2)
+        ))
+
+
+def load_experiments():
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM experiments ORDER BY id DESC",
+            conn
         )
 
-    preprocessor = ColumnTransformer(
-        transformers=transformers
-    )
 
-    return Pipeline([
-        ("preprocessor", preprocessor),
-        ("regressor", LinearRegression())
-    ])
+def save_maintenance(equipment, maintenance_type, wear_value, description):
+    with get_connection() as conn:
+        conn.execute("""
+            INSERT INTO maintenance
+            (created_at, equipment, maintenance_type, wear_value, description)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            equipment,
+            maintenance_type,
+            float(wear_value),
+            description
+        ))
 
+
+def load_maintenance():
+    with get_connection() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM maintenance ORDER BY id DESC",
+            conn
+        )
+
+
+def delete_record(table, record_id):
+    allowed_tables = {"predictions", "experiments", "maintenance"}
+    if table not in allowed_tables:
+        return
+
+    with get_connection() as conn:
+        conn.execute(
+            f"DELETE FROM {table} WHERE id = ?",
+            (int(record_id),)
+        )
+
+
+def update_maintenance(record_id, equipment, maintenance_type,
+                       wear_value, description):
+    with get_connection() as conn:
+        conn.execute("""
+            UPDATE maintenance
+            SET equipment = ?, maintenance_type = ?,
+                wear_value = ?, description = ?
+            WHERE id = ?
+        """, (
+            equipment,
+            maintenance_type,
+            float(wear_value),
+            description,
+            int(record_id)
+        ))
+
+
+initialize_database()
+
+
+# =========================================================
+# 3. 세션 상태
+# =========================================================
+
+defaults = {
+    "df": None,
+    "model": None,
+    "features": [],
+    "evaluation": None,
+    "test_data": None,
+    "prediction_history": [],
+    "current_experiment": None
+}
+
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
+# =========================================================
+# 4. 데이터 처리 및 모델 함수
+# =========================================================
 
 def clean_data(data):
     data = data.copy()
 
-    for col in data.columns:
-        if col in ALL_FEATURES + [TARGET]:
-            if col != "Type":
-                data[col] = pd.to_numeric(
-                    data[col], errors="coerce"
-                )
+    for col in NUMERIC_FEATURES:
+        if col in data.columns:
+            data[col] = pd.to_numeric(data[col], errors="coerce")
+
+    if "Type" in data.columns:
+        data["Type"] = data["Type"].astype("string").str.strip()
+        data["Type"] = data["Type"].replace("", pd.NA)
 
     return data
 
 
-# =====================================================
-# 사이드바 메뉴
-# =====================================================
+def make_pipeline(data, features):
+    categorical = [
+        col for col in features
+        if (
+            col in data.columns
+            and (
+                pd.api.types.is_object_dtype(data[col])
+                or isinstance(data[col].dtype, pd.CategoricalDtype)
+                or pd.api.types.is_string_dtype(data[col])
+            )
+        )
+    ]
 
-st.sidebar.markdown("# ⚙️ PM SYSTEM")
-st.sidebar.caption("INDUSTRIAL ANALYTICS PLATFORM")
+    numerical = [col for col in features if col not in categorical]
+
+    transformers = []
+
+    if numerical:
+        numeric_pipeline = Pipeline([
+            ("imputer", SimpleImputer(strategy="median"))
+        ])
+
+        transformers.append(
+            ("numeric", numeric_pipeline, numerical)
+        )
+
+    if categorical:
+        categorical_pipeline = Pipeline([
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore"))
+        ])
+
+        transformers.append(
+            ("categorical", categorical_pipeline, categorical)
+        )
+
+    preprocessor = ColumnTransformer(transformers)
+
+    model_pipeline = Pipeline([
+        ("preprocessor", preprocessor),
+        ("regressor", LinearRegression())
+    ])
+
+    return model_pipeline
+
+
+def train_model(data, features, test_size):
+    required = features + [TARGET]
+    work = data[required].copy()
+
+    work[TARGET] = pd.to_numeric(work[TARGET], errors="coerce")
+    work = work.dropna(subset=[TARGET])
+
+    if len(work) < 5:
+        raise ValueError("학습에 사용할 수 있는 데이터가 너무 적습니다.")
+
+    X = work[features]
+    y = work[TARGET]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=test_size,
+        random_state=42
+    )
+
+    model = make_pipeline(work, features)
+    model.fit(X_train, y_train)
+
+    predictions = model.predict(X_test)
+
+    mae = mean_absolute_error(y_test, predictions)
+    mse = mean_squared_error(y_test, predictions)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test, predictions)
+
+    result = {
+        "MAE": mae,
+        "MSE": mse,
+        "RMSE": rmse,
+        "R2": r2
+    }
+
+    test_result = pd.DataFrame({
+        "실제 마모 시간": y_test.values,
+        "예측 마모 시간": predictions,
+        "잔차": y_test.values - predictions
+    })
+
+    return model, result, test_result
+
+
+def reset_model():
+    st.session_state.model = None
+    st.session_state.features = []
+    st.session_state.evaluation = None
+    st.session_state.test_data = None
+    st.session_state.current_experiment = None
+
+
+def load_new_data(data):
+    st.session_state.df = clean_data(data)
+    reset_model()
+
+
+def get_dataframe():
+    if st.session_state.df is None:
+        return None
+    return st.session_state.df.copy()
+
+
+def show_metric(label, value, fmt=".3f"):
+    st.metric(label, format(value, fmt))
+
+
+# =========================================================
+# 5. 데이터 불러오기
+# =========================================================
+
+if st.session_state.df is None:
+    if os.path.exists(DEFAULT_DATA_PATH):
+        try:
+            default_df = pd.read_csv(DEFAULT_DATA_PATH)
+            load_new_data(default_df)
+        except Exception:
+            pass
+
+
+# =========================================================
+# 6. 사이드바
+# =========================================================
+
+st.sidebar.title("⚙️ INDUSTRIAL AI")
+st.sidebar.caption("TOOL WEAR MONITORING SYSTEM")
 st.sidebar.divider()
 
 menu = st.sidebar.radio(
-    "MAIN MENU",
+    "시스템 메뉴",
     [
         "🏠 메인 대시보드",
         "📁 데이터 관리",
@@ -243,79 +426,40 @@ menu = st.sidebar.radio(
 )
 
 st.sidebar.divider()
-
-st.sidebar.markdown("### SYSTEM STATUS")
-
-if get_data() is not None:
-    st.sidebar.success("DATA CONNECTED")
-else:
-    st.sidebar.warning("DATA NOT CONNECTED")
-
-if get_model() is not None:
-    st.sidebar.success("MODEL TRAINED")
-else:
-    st.sidebar.info("MODEL NOT TRAINED")
-
-st.sidebar.caption("Predictive Maintenance v1.0")
+st.sidebar.caption("AI4I 2020 Predictive Maintenance Dataset")
+st.sidebar.caption("Linear Regression | Scikit-learn")
 
 
-# =====================================================
-# 공통 데이터 안내
-# =====================================================
-
-df = get_data()
-
-if df is not None:
-    st.session_state.df = clean_data(df)
-    df = get_data()
-
-
-# =====================================================
-# 메인 대시보드
-# =====================================================
+# =========================================================
+# 7. 메인 대시보드
+# =========================================================
 
 if menu == "🏠 메인 대시보드":
 
-    st.title("INDUSTRIAL MONITORING CENTER")
-    st.caption("AI 기반 공구 마모 예측 및 설비 관리 통합 시스템")
+    st.title("산업 설비 모니터링 대시보드")
+    st.caption("설비 작동 데이터 기반 공구 마모 예측 및 정비 의사결정 지원")
 
-    st.divider()
+    df = get_dataframe()
 
     if df is None:
-        st.warning("분석할 데이터가 없습니다. 데이터 관리 메뉴에서 CSV 파일을 업로드하세요.")
+        st.warning("데이터가 아직 등록되지 않았습니다. 데이터 관리 메뉴에서 CSV를 업로드하세요.")
     else:
-        total_rows = len(df)
-        total_columns = len(df.columns)
-        missing = int(df.isnull().sum().sum())
-        model_status = "학습 완료" if get_model() else "대기 중"
+        predictions = load_predictions()
+        maintenance = load_maintenance()
+        experiments = load_experiments()
 
         c1, c2, c3, c4 = st.columns(4)
 
-        c1.metric("전체 데이터", f"{total_rows:,} rows")
-        c2.metric("데이터 변수", f"{total_columns} columns")
-        c3.metric("결측 데이터", f"{missing:,}")
-        c4.metric("AI 모델 상태", model_status)
+        c1.metric("전체 데이터", f"{len(df):,}개")
+        c2.metric("데이터 변수", f"{len(df.columns)}개")
+        c3.metric("예측 기록", f"{len(predictions):,}건")
+        c4.metric("정비 기록", f"{len(maintenance):,}건")
 
         st.divider()
 
         left, right = st.columns(2)
 
         with left:
-            st.subheader("제품 유형별 데이터")
-            if "Type" in df.columns:
-                counts = df["Type"].value_counts().reset_index()
-                counts.columns = ["Type", "Count"]
-
-                fig = px.bar(
-                    counts,
-                    x="Type",
-                    y="Count",
-                    color="Type",
-                    title="Product Type Distribution"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-        with right:
             st.subheader("공구 마모 시간 분포")
             if TARGET in df.columns:
                 fig = px.histogram(
@@ -326,203 +470,250 @@ if menu == "🏠 메인 대시보드":
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
+        with right:
+            st.subheader("제품 유형별 평균 마모")
+            if "Type" in df.columns and TARGET in df.columns:
+                type_mean = (
+                    df.groupby("Type", observed=True)[TARGET]
+                    .mean()
+                    .reset_index()
+                )
+
+                fig = px.bar(
+                    type_mean,
+                    x="Type",
+                    y=TARGET,
+                    color="Type",
+                    title="Average Tool Wear by Type"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+        st.divider()
         st.subheader("최근 예측 기록")
 
-        if st.session_state.prediction_history:
+        if not predictions.empty:
             st.dataframe(
-                pd.DataFrame(
-                    st.session_state.prediction_history
-                ).tail(5),
-                use_container_width=True
+                predictions.head(5),
+                use_container_width=True,
+                hide_index=True
             )
         else:
             st.info("아직 예측 기록이 없습니다.")
 
+        st.subheader("시스템 상태")
 
-# =====================================================
-# 데이터 관리
-# =====================================================
+        status1, status2, status3 = st.columns(3)
+
+        status1.success("데이터 로드 완료")
+        status2.success("SQLite 기록 저장 활성화")
+
+        if st.session_state.model is not None:
+            status3.success("AI 모델 학습 완료")
+        else:
+            status3.warning("AI 모델 학습 필요")
+
+
+# =========================================================
+# 8. 데이터 관리
+# =========================================================
 
 elif menu == "📁 데이터 관리":
 
-    st.title("DATA MANAGEMENT")
-    st.caption("CSV 업로드 및 데이터 전처리")
+    st.title("데이터 관리")
+    st.caption("CSV 데이터 업로드, 결측치 확인, 이상치 탐지 및 데이터 필터링")
 
-    uploaded = st.file_uploader(
-        "CSV 데이터 업로드",
+    uploaded_file = st.file_uploader(
+        "CSV 파일 업로드",
         type=["csv"]
     )
 
-    if uploaded is not None:
-        try:
-            loaded = pd.read_csv(uploaded)
-            st.session_state.df = clean_data(loaded)
-            st.session_state.model = None
-            st.session_state.evaluation = None
-            st.success("데이터 업로드 완료")
-        except Exception as e:
-            st.error(f"파일을 읽을 수 없습니다: {e}")
+    col1, col2 = st.columns(2)
 
-    if st.button("기본 AI4I 데이터 불러오기"):
-        if os.path.exists("ai4i2020.csv"):
-            st.session_state.df = clean_data(
-                pd.read_csv("ai4i2020.csv")
-            )
-            st.session_state.model = None
-            st.session_state.evaluation = None
-            st.success("기본 데이터 로드 완료")
-        else:
-            st.error("저장소에 ai4i2020.csv 파일이 없습니다.")
+    with col1:
+        if uploaded_file is not None:
+            if st.button("업로드 데이터 적용", use_container_width=True):
+                try:
+                    uploaded_df = pd.read_csv(uploaded_file)
+                    load_new_data(uploaded_df)
+                    st.success("데이터를 성공적으로 적용했습니다.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"CSV 처리 오류: {e}")
 
-    df = get_data()
+    with col2:
+        if st.button("기본 AI4I 데이터 불러오기", use_container_width=True):
+            if os.path.exists(DEFAULT_DATA_PATH):
+                try:
+                    load_new_data(pd.read_csv(DEFAULT_DATA_PATH))
+                    st.success("기본 데이터가 적용되었습니다.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"데이터 로드 오류: {e}")
+            else:
+                st.error("프로젝트 폴더에서 ai4i2020.csv 파일을 찾을 수 없습니다.")
+
+    df = get_dataframe()
 
     if df is not None:
 
         st.divider()
-
         st.subheader("데이터 미리보기")
-        st.dataframe(df.head(100), use_container_width=True)
 
         c1, c2, c3 = st.columns(3)
-        c1.metric("행 개수", len(df))
-        c2.metric("열 개수", len(df.columns))
-        c3.metric("중복 행", int(df.duplicated().sum()))
+        c1.metric("행 개수", f"{len(df):,}")
+        c2.metric("열 개수", f"{len(df.columns)}")
+        c3.metric("중복 행", f"{df.duplicated().sum():,}")
+
+        st.dataframe(df.head(100), use_container_width=True)
 
         st.subheader("데이터 유형")
-        types = pd.DataFrame({
-            "Column": df.columns,
-            "Data Type": [str(x) for x in df.dtypes]
+        dtype_df = pd.DataFrame({
+            "변수": df.columns,
+            "데이터 유형": df.dtypes.astype(str).values,
+            "결측치": df.isnull().sum().values
         })
-        st.dataframe(types, use_container_width=True)
 
-        st.subheader("결측치 분석")
+        st.dataframe(dtype_df, use_container_width=True, hide_index=True)
+
+        st.divider()
+        st.subheader("결측치 분석 및 처리")
 
         missing = df.isnull().sum()
-
         missing_df = pd.DataFrame({
-            "Column": missing.index,
-            "Missing Count": missing.values,
-            "Missing Rate (%)":
-                (missing.values / len(df) * 100).round(2)
+            "변수": missing.index,
+            "결측치 개수": missing.values
         })
 
-        st.dataframe(missing_df, use_container_width=True)
+        st.dataframe(missing_df, use_container_width=True, hide_index=True)
 
-        if missing.sum() > 0:
-            if st.button("결측치가 있는 행 제거"):
-                st.session_state.df = df.dropna().copy()
-                st.success("결측치 행 제거 완료")
+        if df.isnull().sum().sum() > 0:
+            if st.button("결측치가 포함된 행 제거"):
+                cleaned = df.dropna()
+                load_new_data(cleaned)
+                st.success(f"{len(df) - len(cleaned)}개 행을 제거했습니다.")
                 st.rerun()
         else:
             st.success("결측치가 없습니다.")
 
-        st.subheader("이상치 탐지 (IQR)")
+        if df.duplicated().sum() > 0:
+            if st.button("중복 행 제거"):
+                cleaned = df.drop_duplicates()
+                load_new_data(cleaned)
+                st.success("중복 행을 제거했습니다.")
+                st.rerun()
 
-        numeric_cols = df.select_dtypes(
-            include=np.number
-        ).columns.tolist()
+        st.divider()
+        st.subheader("이상치 탐지 - IQR 방식")
 
-        if numeric_cols:
-            out_col = st.selectbox(
-                "검사할 변수",
-                numeric_cols
-            )
+        outlier_col = st.selectbox(
+            "이상치를 확인할 변수",
+            [c for c in NUMERIC_FEATURES if c in df.columns]
+        )
 
-            q1 = df[out_col].quantile(0.25)
-            q3 = df[out_col].quantile(0.75)
+        if outlier_col:
+            q1 = df[outlier_col].quantile(0.25)
+            q3 = df[outlier_col].quantile(0.75)
             iqr = q3 - q1
-
             lower = q1 - 1.5 * iqr
             upper = q3 + 1.5 * iqr
 
-            outliers = df[
-                (df[out_col] < lower)
-                | (df[out_col] > upper)
-            ]
-
-            c1, c2, c3 = st.columns(3)
-            c1.metric("하한", f"{lower:.2f}")
-            c2.metric("상한", f"{upper:.2f}")
-            c3.metric("이상치 개수", len(outliers))
-
-            st.dataframe(
-                outliers.head(100),
-                use_container_width=True
+            outlier_mask = (
+                (df[outlier_col] < lower)
+                | (df[outlier_col] > upper)
             )
 
-            st.caption(
-                "IQR 이상치는 통계적 기준을 벗어난 관측값이며, "
-                "반드시 오류 데이터라는 뜻은 아닙니다."
-            )
+            st.write(f"하한 기준: {lower:.3f}")
+            st.write(f"상한 기준: {upper:.3f}")
+            st.write(f"탐지된 이상치: {int(outlier_mask.sum())}개")
 
+            if st.button("선택 변수의 이상치 행 제거"):
+                cleaned = df.loc[~outlier_mask].copy()
+                load_new_data(cleaned)
+                st.success("이상치 행을 제거했습니다.")
+                st.rerun()
+
+        st.divider()
         st.subheader("데이터 필터링")
 
         filtered = df.copy()
 
-        if "Type" in df.columns:
-            types = st.multiselect(
-                "제품 유형 선택",
-                df["Type"].dropna().unique(),
-                default=list(df["Type"].dropna().unique())
+        if "Type" in filtered.columns:
+            types = sorted(filtered["Type"].dropna().astype(str).unique())
+            selected_types = st.multiselect(
+                "제품 유형",
+                types,
+                default=types
             )
-            filtered = filtered[filtered["Type"].isin(types)]
 
-        for col in NUMERIC_FEATURES:
-            if col in filtered.columns:
-                minimum = float(filtered[col].min())
-                maximum = float(filtered[col].max())
+            filtered = filtered[
+                filtered["Type"].astype(str).isin(selected_types)
+            ]
 
-                if minimum < maximum:
-                    selected = st.slider(
-                        col,
-                        min_value=minimum,
-                        max_value=maximum,
-                        value=(minimum, maximum)
+        available_numeric = [
+            c for c in NUMERIC_FEATURES
+            if c in filtered.columns and filtered[c].notna().any()
+        ]
+
+        for col in available_numeric:
+            if filtered.empty:
+                st.warning("현재 조건에 해당하는 데이터가 없습니다.")
+                break
+
+            min_value = float(filtered[col].min())
+            max_value = float(filtered[col].max())
+
+            if min_value < max_value:
+                selected_range = st.slider(
+                    col,
+                    min_value=min_value,
+                    max_value=max_value,
+                    value=(min_value, max_value)
+                )
+
+                filtered = filtered[
+                    filtered[col].between(
+                        selected_range[0],
+                        selected_range[1]
                     )
-
-                    filtered = filtered[
-                        filtered[col].between(
-                            selected[0], selected[1]
-                        )
-                    ]
+                ]
 
         st.write(f"필터링 결과: {len(filtered):,}개 행")
         st.dataframe(filtered, use_container_width=True)
 
         st.download_button(
             "필터링 데이터 CSV 다운로드",
-            filtered.to_csv(index=False).encode("utf-8-sig"),
-            "filtered_data.csv",
-            "text/csv"
+            data=filtered.to_csv(index=False).encode("utf-8-sig"),
+            file_name="filtered_data.csv",
+            mime="text/csv"
         )
 
 
-# =====================================================
-# 데이터 분석 및 시각화
-# =====================================================
+# =========================================================
+# 9. 데이터 분석
+# =========================================================
 
 elif menu == "📊 데이터 분석":
 
-    st.title("DATA ANALYTICS")
-    st.caption("데이터 통계 및 시각화 분석")
+    st.title("데이터 분석")
+    st.caption("공구 마모와 설비 작동 변수 사이의 관계 분석")
+
+    df = get_dataframe()
 
     if df is None:
-        st.warning("먼저 데이터를 업로드하세요.")
+        st.warning("먼저 데이터를 불러오세요.")
     else:
+        numeric_df = df.select_dtypes(include=np.number)
 
-        st.subheader("상관관계 히트맵")
+        st.subheader("상관관계 분석")
 
-        numeric = df.select_dtypes(
-            include=np.number
-        )
-
-        corr = numeric.corr()
+        corr = numeric_df.corr()
 
         fig = px.imshow(
             corr,
             text_auto=".2f",
             color_continuous_scale="RdBu_r",
-            title="Correlation Matrix"
+            aspect="auto",
+            title="Correlation Heatmap"
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -530,462 +721,413 @@ elif menu == "📊 데이터 분석":
         if TARGET in corr.columns:
             st.subheader("공구 마모 시간과의 상관관계")
 
-            wear_corr = corr[TARGET].drop(TARGET).sort_values(
-                ascending=False
+            target_corr = (
+                corr[TARGET]
+                .drop(TARGET)
+                .sort_values(ascending=False)
+                .reset_index()
             )
+
+            target_corr.columns = ["변수", "상관계수"]
 
             st.dataframe(
-                wear_corr.rename("Correlation"),
-                use_container_width=True
+                target_corr,
+                use_container_width=True,
+                hide_index=True
             )
 
-        st.divider()
+            fig = px.bar(
+                target_corr,
+                x="변수",
+                y="상관계수",
+                title="Correlation with Tool Wear"
+            )
 
-        st.subheader("제품 유형별 마모 시간 비교")
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.divider()
+        st.subheader("제품 유형별 마모 비교")
 
         if "Type" in df.columns and TARGET in df.columns:
-
             fig = px.box(
                 df,
                 x="Type",
                 y=TARGET,
                 color="Type",
-                points="outliers",
                 title="Tool Wear by Product Type"
             )
 
             st.plotly_chart(fig, use_container_width=True)
 
-            type_stats = df.groupby("Type")[TARGET].agg(
-                ["count", "mean", "median", "std"]
+            type_stats = (
+                df.groupby("Type", observed=True)[TARGET]
+                .agg(["count", "mean", "median", "std", "max"])
+                .reset_index()
             )
 
-            st.dataframe(type_stats, use_container_width=True)
+            type_stats.columns = [
+                "제품 유형", "데이터 수", "평균", "중앙값", "표준편차", "최댓값"
+            ]
+
+            st.dataframe(
+                type_stats,
+                use_container_width=True,
+                hide_index=True
+            )
 
         st.divider()
+        st.subheader("설비 작동 변수와 공구 마모의 관계")
 
-        st.subheader("변수별 산점도")
-
-        available = [
+        scatter_features = [
             c for c in NUMERIC_FEATURES
-            if c in df.columns
+            if c in df.columns and c != TARGET
         ]
 
-        if available and TARGET in df.columns:
-
-            selected_x = st.selectbox(
-                "분석할 독립변수",
-                available
-            )
-
-            fig = px.scatter(
-                df,
-                x=selected_x,
-                y=TARGET,
-                color="Type" if "Type" in df.columns else None,
-                trendline="ols",
-                title=f"{selected_x} vs Tool Wear"
-            )
-
-            st.plotly_chart(fig, use_container_width=True)
-
-        st.divider()
-
-        st.subheader("데이터 분포 및 기초통계")
-
-        selected_stat = st.selectbox(
-            "통계 분석 변수",
-            numeric.columns
+        selected_scatter = st.selectbox(
+            "분석할 변수",
+            scatter_features
         )
 
-        values = df[selected_stat].dropna()
+        fig = px.scatter(
+            df,
+            x=selected_scatter,
+            y=TARGET,
+            color="Type" if "Type" in df.columns else None,
+            trendline=None,
+            title=f"{selected_scatter} vs Tool Wear"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.divider()
+        st.subheader("마모 시간 분포 및 기초통계")
 
         c1, c2, c3, c4 = st.columns(4)
 
-        c1.metric("평균", f"{values.mean():.2f}")
-        c2.metric("중앙값", f"{values.median():.2f}")
-        c3.metric("표준편차", f"{values.std():.2f}")
-        c4.metric("최댓값", f"{values.max():.2f}")
+        c1.metric("평균", f"{df[TARGET].mean():.2f}")
+        c2.metric("중앙값", f"{df[TARGET].median():.2f}")
+        c3.metric("표준편차", f"{df[TARGET].std():.2f}")
+        c4.metric("최댓값", f"{df[TARGET].max():.2f}")
 
         fig = px.histogram(
             df,
-            x=selected_stat,
+            x=TARGET,
             nbins=40,
             marginal="box",
-            title=f"{selected_stat} Distribution"
+            title="Tool Wear Distribution"
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
 
-# =====================================================
-# AI 모델 실험실
-# =====================================================
+# =========================================================
+# 10. AI 모델 실험실
+# =========================================================
 
 elif menu == "🧠 AI 모델 실험실":
 
-    st.title("AI MODEL LAB")
-    st.caption("Linear Regression Training & Evaluation")
+    st.title("AI 모델 실험실")
+    st.caption("선형회귀 모델 학습, 변수 조합 실험 및 성능 평가")
+
+    df = get_dataframe()
 
     if df is None:
-        st.warning("먼저 데이터를 업로드하세요.")
-
+        st.warning("먼저 데이터를 불러오세요.")
     elif TARGET not in df.columns:
-        st.error(f"종속변수 {TARGET} 컬럼이 필요합니다.")
-
+        st.error(f"데이터에 목표 변수 {TARGET}가 없습니다.")
     else:
 
-        available = [
+        available_features = [
             c for c in ALL_FEATURES
             if c in df.columns
         ]
 
-        st.subheader("독립변수 선택")
+        st.subheader("학습 조건 설정")
 
         selected_features = st.multiselect(
-            "모델 학습에 사용할 변수",
-            available,
-            default=available
+            "독립변수 선택",
+            available_features,
+            default=available_features
         )
 
-        st.subheader("데이터 분할 설정")
-
-        test_ratio = st.slider(
-            "테스트 데이터 비율 (%)",
-            10, 40, 20, 5
+        test_size = st.slider(
+            "테스트 데이터 비율",
+            min_value=0.1,
+            max_value=0.4,
+            value=0.2,
+            step=0.05
         )
 
-        st.caption(
-            f"학습 데이터 {100-test_ratio}% / "
-            f"테스트 데이터 {test_ratio}%"
+        experiment_name = st.text_input(
+            "실험 이름",
+            value=f"실험 {datetime.now().strftime('%m%d-%H%M')}"
         )
 
-        st.subheader("선형회귀 모델 학습")
-
-        if st.button("🚀 모델 학습 시작", use_container_width=True):
+        if st.button("모델 학습 및 평가", use_container_width=True):
 
             if not selected_features:
-                st.error("독립변수를 한 개 이상 선택하세요.")
-
+                st.error("독립변수를 하나 이상 선택하세요.")
             else:
-                model_data = df[
-                    selected_features + [TARGET]
-                ].dropna().copy()
+                try:
+                    model, metrics, test_result = train_model(
+                        df,
+                        selected_features,
+                        test_size
+                    )
 
-                X = model_data[selected_features]
-                y = model_data[TARGET]
+                    st.session_state.model = model
+                    st.session_state.features = selected_features
+                    st.session_state.evaluation = metrics
+                    st.session_state.test_data = test_result
+                    st.session_state.current_experiment = experiment_name
 
-                if len(model_data) < 10:
-                    st.error("학습에 필요한 데이터가 부족합니다.")
-                else:
-                    try:
-                        X_train, X_test, y_train, y_test = (
-                            train_test_split(
-                                X,
-                                y,
-                                test_size=test_ratio / 100,
-                                random_state=42
-                            )
-                        )
+                    save_experiment(
+                        experiment_name,
+                        selected_features,
+                        test_size,
+                        metrics["MAE"],
+                        metrics["MSE"],
+                        metrics["RMSE"],
+                        metrics["R2"]
+                    )
 
-                        model = make_pipeline(
-                            selected_features,
-                            model_data
-                        )
+                    st.success("모델 학습과 평가가 완료되었습니다.")
 
-                        model.fit(X_train, y_train)
+                except Exception as e:
+                    st.error(f"모델 학습 오류: {e}")
 
-                        pred = model.predict(X_test)
+        if st.session_state.evaluation is not None:
 
-                        mae = mean_absolute_error(
-                            y_test, pred
-                        )
-                        mse = mean_squared_error(
-                            y_test, pred
-                        )
-                        rmse = np.sqrt(mse)
-                        r2 = r2_score(y_test, pred)
-
-                        st.session_state.model = model
-                        st.session_state.features = (
-                            selected_features
-                        )
-
-                        st.session_state.evaluation = {
-                            "MAE": mae,
-                            "MSE": mse,
-                            "RMSE": rmse,
-                            "R2": r2,
-                            "Test Ratio": test_ratio
-                        }
-
-                        st.session_state.test_data = pd.DataFrame({
-                            "Actual": y_test.to_numpy(),
-                            "Predicted": pred
-                        })
-
-                        experiment = {
-                            "Date": datetime.now().strftime(
-                                "%Y-%m-%d %H:%M"
-                            ),
-                            "Features": ", ".join(
-                                selected_features
-                            ),
-                            "Test Ratio": test_ratio,
-                            "MAE": mae,
-                            "RMSE": rmse,
-                            "R2": r2
-                        }
-
-                        st.session_state.experiments.append(
-                            experiment
-                        )
-
-                        st.success("모델 학습 및 평가 완료!")
-
-                    except Exception as e:
-                        st.error(f"모델 학습 오류: {e}")
-
-        # 평가 결과
-        evaluation = st.session_state.evaluation
-
-        if evaluation is not None:
+            metrics = st.session_state.evaluation
+            test_result = st.session_state.test_data
 
             st.divider()
-            st.subheader("모델 평가 결과")
+            st.subheader("모델 성능 평가")
 
             c1, c2, c3, c4 = st.columns(4)
 
-            c1.metric(
-                "MAE",
-                f"{evaluation['MAE']:.3f}"
-            )
-            c2.metric(
-                "MSE",
-                f"{evaluation['MSE']:.3f}"
-            )
-            c3.metric(
-                "RMSE",
-                f"{evaluation['RMSE']:.3f}"
-            )
-            c4.metric(
-                "R²",
-                f"{evaluation['R2']:.3f}"
-            )
+            c1.metric("MAE", f"{metrics['MAE']:.3f}")
+            c2.metric("MSE", f"{metrics['MSE']:.3f}")
+            c3.metric("RMSE", f"{metrics['RMSE']:.3f}")
+            c4.metric("R²", f"{metrics['R2']:.4f}")
 
             st.caption(
-                "MAE·RMSE는 예측 오차의 크기를 나타내며 "
-                "낮을수록 좋습니다. R²는 설명력을 나타내며 "
-                "일반적으로 1에 가까울수록 좋습니다."
+                "MAE·RMSE는 예측 오차의 크기를, R²는 모델이 데이터의 변동을 설명하는 정도를 나타냅니다."
             )
 
+            st.divider()
             st.subheader("실제값과 예측값 비교")
 
-            test = st.session_state.test_data
-
-            fig = go.Figure()
-
-            fig.add_trace(go.Scatter(
-                x=test["Actual"],
-                y=test["Predicted"],
-                mode="markers",
-                name="Prediction"
-            ))
-
-            low = min(
-                test["Actual"].min(),
-                test["Predicted"].min()
+            fig = px.scatter(
+                test_result,
+                x="실제 마모 시간",
+                y="예측 마모 시간",
+                title="Actual vs Predicted"
             )
-            high = max(
-                test["Actual"].max(),
-                test["Predicted"].max()
+
+            min_val = min(
+                test_result["실제 마모 시간"].min(),
+                test_result["예측 마모 시간"].min()
+            )
+
+            max_val = max(
+                test_result["실제 마모 시간"].max(),
+                test_result["예측 마모 시간"].max()
             )
 
             fig.add_trace(go.Scatter(
-                x=[low, high],
-                y=[low, high],
+                x=[min_val, max_val],
+                y=[min_val, max_val],
                 mode="lines",
-                name="Ideal Prediction"
+                name="이상적인 예측선"
             ))
-
-            fig.update_layout(
-                xaxis_title="Actual Tool Wear",
-                yaxis_title="Predicted Tool Wear"
-            )
 
             st.plotly_chart(fig, use_container_width=True)
 
-            residual = (
-                test["Actual"] - test["Predicted"]
-            )
-
-            residual_df = pd.DataFrame({
-                "Predicted": test["Predicted"],
-                "Residual": residual
-            })
+            st.subheader("잔차 분석")
 
             fig = px.scatter(
-                residual_df,
-                x="Predicted",
-                y="Residual",
-                title="Residual Analysis"
+                test_result,
+                x="예측 마모 시간",
+                y="잔차",
+                title="Residual Plot"
             )
 
             fig.add_hline(y=0, line_dash="dash")
-
             st.plotly_chart(fig, use_container_width=True)
 
-            st.subheader("모델 회귀계수")
+            st.divider()
+            st.subheader("회귀계수 분석")
 
-            fitted = get_model()
-            feature_names = (
-                fitted.named_steps["preprocessor"]
-                .get_feature_names_out()
-            )
+            try:
+                preprocessor = st.session_state.model.named_steps["preprocessor"]
+                regressor = st.session_state.model.named_steps["regressor"]
 
-            coefficients = (
-                fitted.named_steps["regressor"].coef_
-            )
+                feature_names = preprocessor.get_feature_names_out()
 
-            coef_df = pd.DataFrame({
-                "Variable": feature_names,
-                "Coefficient": coefficients
-            })
+                coef_df = pd.DataFrame({
+                    "변수": feature_names,
+                    "회귀계수": regressor.coef_
+                })
 
-            st.dataframe(
-                coef_df,
-                use_container_width=True
-            )
+                coef_df["절댓값"] = coef_df["회귀계수"].abs()
+                coef_df = coef_df.sort_values(
+                    "절댓값",
+                    ascending=False
+                )
+
+                st.dataframe(
+                    coef_df.drop(columns="절댓값"),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                fig = px.bar(
+                    coef_df,
+                    x="변수",
+                    y="회귀계수",
+                    title="Regression Coefficients"
+                )
+
+                st.plotly_chart(fig, use_container_width=True)
+
+            except Exception as e:
+                st.warning(f"회귀계수 표시 중 문제가 발생했습니다: {e}")
 
         st.divider()
+        st.subheader("실험 결과 비교")
 
-        st.subheader("모델 실험 기록")
+        experiments = load_experiments()
 
-        if st.session_state.experiments:
-            exp_df = pd.DataFrame(
-                st.session_state.experiments
+        if not experiments.empty:
+            st.dataframe(
+                experiments,
+                use_container_width=True,
+                hide_index=True
             )
-
-            st.dataframe(exp_df, use_container_width=True)
-
-            st.download_button(
-                "실험 결과 CSV 다운로드",
-                exp_df.to_csv(
-                    index=False
-                ).encode("utf-8-sig"),
-                "model_experiments.csv",
-                "text/csv"
-            )
-
-            st.subheader("실험별 R² 비교")
 
             fig = px.bar(
-                exp_df.reset_index(),
-                x="index",
-                y="R2",
-                title="Experiment R² Comparison"
+                experiments.sort_values("id"),
+                x="experiment_name",
+                y="r2",
+                title="Experiment R² Comparison",
+                hover_data=["mae", "rmse", "test_size"]
             )
 
             st.plotly_chart(fig, use_container_width=True)
 
+            best = experiments.loc[experiments["r2"].idxmax()]
 
-# =====================================================
-# 공구 마모 예측 센터
-# =====================================================
+            st.info(
+                f"현재 저장된 실험 중 가장 높은 R²: "
+                f"{best['experiment_name']} ({best['r2']:.4f})"
+            )
+
+            delete_exp_id = st.number_input(
+                "삭제할 실험 ID",
+                min_value=1,
+                step=1,
+                key="delete_exp_id"
+            )
+
+            if st.button("선택 실험 기록 삭제"):
+                delete_record("experiments", delete_exp_id)
+                st.success("실험 기록을 삭제했습니다.")
+                st.rerun()
+        else:
+            st.info("저장된 실험 결과가 없습니다.")
+
+
+# =========================================================
+# 11. 공구 마모 예측
+# =========================================================
 
 elif menu == "⚙️ 공구 마모 예측":
 
-    st.title("TOOL WEAR PREDICTION CENTER")
-    st.caption("Trained Linear Regression Model")
+    st.title("공구 마모 예측")
+    st.caption("설비 작동 조건을 입력해 공구 마모 시간을 예측합니다.")
 
-    model = get_model()
+    df = get_dataframe()
 
-    if model is None:
+    if df is None:
+        st.warning("먼저 데이터를 불러오세요.")
+    elif st.session_state.model is None:
         st.warning("AI 모델 실험실에서 먼저 모델을 학습하세요.")
-
     else:
 
-        df = get_data()
+        model = st.session_state.model
         features = st.session_state.features
 
-        st.subheader("설비 작동 조건 입력")
+        st.subheader("설비 조건 입력")
 
-        with st.form("prediction_form"):
+        input_values = {}
 
-            input_values = {}
+        col1, col2 = st.columns(2)
 
-            cols = st.columns(2)
+        for i, feature in enumerate(features):
+            container = col1 if i % 2 == 0 else col2
 
-            for i, feature in enumerate(features):
+            with container:
 
-                with cols[i % 2]:
+                if feature == "Type":
+                    input_values[feature] = st.selectbox(
+                        "제품 유형",
+                        ["L", "M", "H"]
+                    )
 
-                    if feature == "Type":
-                        input_values[feature] = st.selectbox(
-                            "제품 유형",
-                            ["L", "M", "H"]
-                        )
+                else:
+                    series = pd.to_numeric(
+                        df[feature],
+                        errors="coerce"
+                    ).dropna()
 
+                    if series.empty:
+                        input_values[feature] = 0.0
                     else:
-                        default = float(df[feature].median())
-
-                        minimum = float(df[feature].min())
-                        maximum = float(df[feature].max())
+                        minimum = float(series.min())
+                        maximum = float(series.max())
+                        median = float(series.median())
 
                         input_values[feature] = st.number_input(
                             feature,
                             min_value=minimum,
                             max_value=maximum,
-                            value=default
+                            value=median
                         )
 
-            submitted = st.form_submit_button(
-                "공구 마모 시간 예측",
-                use_container_width=True
-            )
+        if st.button("공구 마모 예측 실행", use_container_width=True):
 
-        if submitted:
+            input_df = pd.DataFrame([input_values])
 
-            input_df = pd.DataFrame(
-                [input_values],
-                columns=features
-            )
+            try:
+                prediction = float(model.predict(input_df)[0])
 
-            prediction = float(
-                model.predict(input_df)[0]
-            )
-
-            st.success("예측 완료")
-
-            st.metric(
-                "예측 공구 마모 시간",
-                f"{prediction:.2f} min"
-            )
-
-            record = {
-                **input_values,
-                "Predicted Tool Wear": prediction,
-                "Date": datetime.now().strftime(
-                    "%Y-%m-%d %H:%M:%S"
+                save_prediction(
+                    prediction,
+                    input_values,
+                    "직접 예측"
                 )
-            }
 
-            st.session_state.prediction_history.append(
-                record
-            )
+                st.success("예측이 완료되었습니다.")
 
-            st.info(
-                "이 값은 학습 데이터의 관계를 바탕으로 계산한 "
-                "공구 마모 시간 추정치입니다. 실제 마모 상태나 "
-                "잔여 수명을 직접 측정한 값은 아닙니다."
-            )
+                st.metric(
+                    "예측 공구 마모 시간",
+                    f"{prediction:.2f} min"
+                )
+
+                st.caption(
+                    "이 값은 모델이 추정한 공구 마모 시간입니다. "
+                    "실제 교체 시점이나 잔여 수명을 직접 나타내지는 않습니다."
+                )
+
+            except Exception as e:
+                st.error(f"예측 오류: {e}")
 
         st.divider()
-
-        st.subheader("여러 조건 일괄 예측")
+        st.subheader("CSV 일괄 예측")
 
         batch_file = st.file_uploader(
-            "예측할 조건이 담긴 CSV 업로드",
+            "예측할 설비 데이터 CSV 업로드",
             type=["csv"],
             key="batch_upload"
         )
@@ -993,284 +1135,432 @@ elif menu == "⚙️ 공구 마모 예측":
         if batch_file is not None:
 
             try:
-                batch = pd.read_csv(batch_file)
+                batch_df = pd.read_csv(batch_file)
 
                 missing_features = [
                     f for f in features
-                    if f not in batch.columns
+                    if f not in batch_df.columns
                 ]
 
                 if missing_features:
                     st.error(
-                        f"필요한 컬럼이 없습니다: {missing_features}"
+                        f"CSV에 필요한 변수가 없습니다: {missing_features}"
                     )
                 else:
-                    batch_pred = model.predict(
-                        batch[features]
-                    )
+                    st.dataframe(batch_df.head(), use_container_width=True)
 
-                    result = batch.copy()
-                    result["Predicted Tool Wear"] = batch_pred
+                    if st.button("일괄 예측 실행"):
 
-                    st.dataframe(
-                        result,
-                        use_container_width=True
-                    )
+                        batch_input = batch_df[features].copy()
+                        batch_predictions = model.predict(batch_input)
 
-                    st.download_button(
-                        "일괄 예측 결과 CSV 다운로드",
-                        result.to_csv(
-                            index=False
-                        ).encode("utf-8-sig"),
-                        "batch_predictions.csv",
-                        "text/csv"
-                    )
+                        result_df = batch_df.copy()
+                        result_df["예측 공구 마모 시간 [min]"] = batch_predictions
+
+                        for _, row in result_df.iterrows():
+                            input_dict = {
+                                f: row[f] for f in features
+                            }
+
+                            save_prediction(
+                                row["예측 공구 마모 시간 [min]"],
+                                input_dict,
+                                "CSV 일괄 예측"
+                            )
+
+                        st.success(
+                            f"{len(result_df)}개 데이터의 예측을 완료했습니다."
+                        )
+
+                        st.dataframe(
+                            result_df,
+                            use_container_width=True
+                        )
+
+                        st.download_button(
+                            "예측 결과 CSV 다운로드",
+                            data=result_df.to_csv(
+                                index=False
+                            ).encode("utf-8-sig"),
+                            file_name="tool_wear_predictions.csv",
+                            mime="text/csv"
+                        )
 
             except Exception as e:
-                st.error(f"예측 오류: {e}")
+                st.error(f"일괄 예측 오류: {e}")
 
         st.divider()
-
         st.subheader("예측 이력")
 
-        history = st.session_state.prediction_history
+        predictions = load_predictions()
 
-        if history:
-            history_df = pd.DataFrame(history)
-
+        if not predictions.empty:
             st.dataframe(
-                history_df,
-                use_container_width=True
+                predictions,
+                use_container_width=True,
+                hide_index=True
             )
 
-            st.download_button(
-                "예측 기록 CSV 다운로드",
-                history_df.to_csv(
-                    index=False
-                ).encode("utf-8-sig"),
-                "prediction_history.csv",
-                "text/csv"
+            delete_id = st.number_input(
+                "삭제할 예측 기록 ID",
+                min_value=1,
+                step=1,
+                key="delete_prediction_id"
             )
 
+            if st.button("예측 기록 삭제"):
+                delete_record("predictions", delete_id)
+                st.success("예측 기록을 삭제했습니다.")
+                st.rerun()
+        else:
+            st.info("예측 이력이 없습니다.")
 
-# =====================================================
-# 설비 및 정비 관리
-# =====================================================
+
+# =========================================================
+# 12. 설비 및 정비 관리
+# =========================================================
 
 elif menu == "🔧 설비 및 정비 관리":
 
-    st.title("MAINTENANCE MANAGEMENT")
-    st.caption("설비 정비 이력 및 예측 기록 관리")
+    st.title("설비 및 정비 관리")
+    st.caption("설비 정비 이력 등록, 조회, 수정 및 삭제")
 
-    st.subheader("정비 이력 등록")
+    st.subheader("정비 기록 등록")
 
     with st.form("maintenance_form"):
 
-        machine = st.text_input(
-            "설비 ID",
-            placeholder="예: CNC-001"
-        )
-
-        tool_name = st.text_input(
-            "공구 이름",
-            placeholder="예: Cutting Tool A"
-        )
-
-        wear_value = st.number_input(
-            "정비 당시 확인한 마모 시간 (min)",
-            min_value=0.0,
-            value=0.0
+        equipment = st.text_input(
+            "설비명 또는 설비 ID",
+            value="Machine-001"
         )
 
         maintenance_type = st.selectbox(
             "정비 유형",
-            ["공구 교체", "공구 점검", "설비 점검", "기타"]
+            [
+                "공구 교체",
+                "정기 점검",
+                "부품 교체",
+                "윤활 및 청소",
+                "기타"
+            ]
         )
 
-        note = st.text_area("정비 내용")
-
-        save = st.form_submit_button(
-            "정비 기록 등록",
-            use_container_width=True
+        wear_value = st.number_input(
+            "정비 당시 공구 마모 시간 [min]",
+            min_value=0.0,
+            value=0.0
         )
 
-    if save:
+        description = st.text_area(
+            "정비 내용 및 특이사항"
+        )
 
-        if machine.strip():
+        submitted = st.form_submit_button("정비 기록 저장")
 
-            st.session_state.maintenance_log.append({
-                "Date": datetime.now().strftime(
-                    "%Y-%m-%d %H:%M"
-                ),
-                "Machine ID": machine,
-                "Tool": tool_name,
-                "Wear Time": wear_value,
-                "Type": maintenance_type,
-                "Note": note
-            })
+        if submitted:
+            if not equipment.strip():
+                st.error("설비명을 입력하세요.")
+            else:
+                save_maintenance(
+                    equipment,
+                    maintenance_type,
+                    wear_value,
+                    description
+                )
 
-            st.success("정비 기록 등록 완료")
-
-        else:
-            st.error("설비 ID를 입력하세요.")
+                st.success("정비 기록을 저장했습니다.")
+                st.rerun()
 
     st.divider()
-
     st.subheader("정비 이력 조회")
 
-    logs = st.session_state.maintenance_log
+    maintenance = load_maintenance()
 
-    if logs:
-
-        log_df = pd.DataFrame(logs)
+    if not maintenance.empty:
 
         st.dataframe(
-            log_df,
-            use_container_width=True
+            maintenance,
+            use_container_width=True,
+            hide_index=True
         )
 
-        delete_index = st.selectbox(
-            "삭제할 기록 선택",
-            range(len(log_df)),
-            format_func=lambda x:
-                f"{log_df.iloc[x]['Machine ID']} "
-                f"- {log_df.iloc[x]['Date']}"
+        st.divider()
+        st.subheader("정비 기록 수정")
+
+        record_options = {
+            f"ID {row['id']} | {row['equipment']} | {row['created_at']}": int(row["id"])
+            for _, row in maintenance.iterrows()
+        }
+
+        selected_label = st.selectbox(
+            "수정할 기록 선택",
+            list(record_options.keys())
         )
 
-        if st.button("선택 기록 삭제"):
-            st.session_state.maintenance_log.pop(
-                delete_index
+        selected_id = record_options[selected_label]
+        selected_row = maintenance[
+            maintenance["id"] == selected_id
+        ].iloc[0]
+
+        with st.form("edit_maintenance_form"):
+
+            edit_equipment = st.text_input(
+                "설비명",
+                value=str(selected_row["equipment"])
             )
-            st.success("삭제 완료")
+
+            edit_type = st.selectbox(
+                "정비 유형",
+                [
+                    "공구 교체",
+                    "정기 점검",
+                    "부품 교체",
+                    "윤활 및 청소",
+                    "기타"
+                ],
+                index=(
+                    [
+                        "공구 교체",
+                        "정기 점검",
+                        "부품 교체",
+                        "윤활 및 청소",
+                        "기타"
+                    ].index(selected_row["maintenance_type"])
+                    if selected_row["maintenance_type"] in [
+                        "공구 교체",
+                        "정기 점검",
+                        "부품 교체",
+                        "윤활 및 청소",
+                        "기타"
+                    ] else 0
+                )
+            )
+
+            edit_wear = st.number_input(
+                "마모 시간",
+                min_value=0.0,
+                value=float(selected_row["wear_value"])
+            )
+
+            edit_description = st.text_area(
+                "정비 내용",
+                value=str(selected_row["description"])
+            )
+
+            edit_submitted = st.form_submit_button("수정 내용 저장")
+
+            if edit_submitted:
+                update_maintenance(
+                    selected_id,
+                    edit_equipment,
+                    edit_type,
+                    edit_wear,
+                    edit_description
+                )
+
+                st.success("정비 기록을 수정했습니다.")
+                st.rerun()
+
+        st.divider()
+        st.subheader("정비 기록 삭제")
+
+        delete_maintenance_id = st.selectbox(
+            "삭제할 정비 기록 ID",
+            maintenance["id"].astype(int).tolist()
+        )
+
+        if st.button("선택한 정비 기록 삭제"):
+            delete_record("maintenance", delete_maintenance_id)
+            st.success("정비 기록을 삭제했습니다.")
             st.rerun()
 
         st.download_button(
             "정비 이력 CSV 다운로드",
-            log_df.to_csv(
+            data=maintenance.to_csv(
                 index=False
             ).encode("utf-8-sig"),
-            "maintenance_history.csv",
-            "text/csv"
+            file_name="maintenance_history.csv",
+            mime="text/csv"
         )
-
-        st.subheader("예측 결과와 정비 이력 비교")
-
-        predictions = st.session_state.prediction_history
-
-        if predictions:
-
-            pred_df = pd.DataFrame(predictions)
-
-            st.write("최근 예측 결과")
-            st.dataframe(
-                pred_df.tail(10),
-                use_container_width=True
-            )
-
-            st.caption(
-                "예측 마모 시간과 실제 정비 기록을 함께 살펴볼 수 있습니다. "
-                "두 값은 측정 시점과 기준이 다를 수 있으므로 "
-                "동일한 시점의 값처럼 단순 비교하면 안 됩니다."
-            )
-
-        else:
-            st.info("아직 예측 기록이 없습니다.")
 
     else:
         st.info("등록된 정비 기록이 없습니다.")
 
+    st.divider()
+    st.subheader("예측 마모와 실제 정비 기록 비교")
 
-# =====================================================
-# 분석 보고서
-# =====================================================
+    predictions = load_predictions()
+    maintenance = load_maintenance()
+
+    if not predictions.empty and not maintenance.empty:
+
+        pred_summary = (
+            predictions.groupby("source")["prediction"]
+            .agg(["count", "mean", "max"])
+            .reset_index()
+        )
+
+        st.write("예측 기록 요약")
+        st.dataframe(pred_summary, use_container_width=True)
+
+        st.write("실제 정비 기록의 마모 시간")
+        st.dataframe(
+            maintenance[[
+                "created_at",
+                "equipment",
+                "wear_value",
+                "maintenance_type"
+            ]],
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.caption(
+            "예측 기록과 정비 기록은 서로 다른 시점과 설비에서 발생했을 수 있으므로, "
+            "단순 평균 비교만으로 모델의 정비 효과를 판단할 수는 없습니다."
+        )
+
+    else:
+        st.info("예측 기록과 정비 기록이 모두 있어야 비교할 수 있습니다.")
+
+
+# =========================================================
+# 13. 분석 보고서
+# =========================================================
 
 elif menu == "📄 분석 보고서":
 
-    st.title("ANALYSIS REPORT")
-    st.caption("데이터 및 머신러닝 분석 결과 통합")
+    st.title("분석 보고서")
+    st.caption("데이터 분석, 모델 평가, 실험 및 정비 기록 요약")
 
-    df = get_data()
-    evaluation = st.session_state.evaluation
+    df = get_dataframe()
+    predictions = load_predictions()
+    experiments = load_experiments()
+    maintenance = load_maintenance()
 
     if df is None:
-        st.warning("데이터를 먼저 업로드하세요.")
-
+        st.warning("데이터가 등록되지 않았습니다.")
     else:
 
-        st.subheader("데이터 요약")
+        st.subheader("1. 데이터 요약")
 
-        st.write(f"- 데이터 행 수: {len(df):,}")
-        st.write(f"- 데이터 열 수: {len(df.columns)}")
-        st.write(f"- 결측치 수: {df.isnull().sum().sum():,}")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("데이터 행 수", f"{len(df):,}")
+        c2.metric("변수 수", f"{len(df.columns)}")
+        c3.metric("결측치 수", f"{int(df.isnull().sum().sum()):,}")
+
+        st.subheader("2. 공구 마모 기초통계")
 
         if TARGET in df.columns:
-            st.write(
-                f"- 평균 공구 마모 시간: "
-                f"{df[TARGET].mean():.2f} min"
-            )
-
-        st.divider()
-
-        st.subheader("모델 평가 결과")
-
-        if evaluation:
-
-            for metric, value in evaluation.items():
-                st.write(f"- {metric}: {value}")
-
-        else:
-            st.info("아직 학습된 모델이 없습니다.")
-
-        st.divider()
-
-        st.subheader("실험 기록")
-
-        if st.session_state.experiments:
             st.dataframe(
-                pd.DataFrame(
-                    st.session_state.experiments
-                ),
+                df[TARGET].describe().to_frame("공구 마모 시간"),
                 use_container_width=True
             )
 
-        report = [
-            "PREDICTIVE MAINTENANCE ANALYSIS REPORT",
-            f"Generated: {datetime.now()}",
+        st.subheader("3. AI 모델 평가")
+
+        if st.session_state.evaluation is not None:
+
+            metrics = st.session_state.evaluation
+
+            st.dataframe(
+                pd.DataFrame([metrics]),
+                use_container_width=True
+            )
+
+            st.write("사용 변수:", ", ".join(st.session_state.features))
+
+        else:
+            st.info("아직 학습된 모델 평가 결과가 없습니다.")
+
+        st.subheader("4. 실험 기록")
+        st.dataframe(
+            experiments,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.subheader("5. 예측 기록")
+        st.dataframe(
+            predictions,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.subheader("6. 정비 기록")
+        st.dataframe(
+            maintenance,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        report_lines = [
+            "산업 설비 공구 마모 분석 보고서",
+            "=" * 45,
+            f"보고서 생성 시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "",
-            f"Data rows: {len(df)}",
-            f"Data columns: {len(df.columns)}",
-            f"Missing values: {df.isnull().sum().sum()}"
+            "[데이터 요약]",
+            f"행 개수: {len(df)}",
+            f"열 개수: {len(df.columns)}",
+            f"결측치 수: {int(df.isnull().sum().sum())}",
+            f"중복 행 수: {int(df.duplicated().sum())}",
+            "",
+            "[공구 마모 기초통계]"
         ]
 
-        if evaluation:
-            report.append("")
-            report.append("MODEL EVALUATION")
+        if TARGET in df.columns:
+            report_lines.extend([
+                f"평균: {df[TARGET].mean():.3f}",
+                f"중앙값: {df[TARGET].median():.3f}",
+                f"표준편차: {df[TARGET].std():.3f}",
+                f"최댓값: {df[TARGET].max():.3f}"
+            ])
 
-            for key, value in evaluation.items():
-                report.append(f"{key}: {value}")
+        report_lines.extend([
+            "",
+            "[모델 평가]"
+        ])
+
+        if st.session_state.evaluation is not None:
+            for key, value in st.session_state.evaluation.items():
+                report_lines.append(f"{key}: {value:.5f}")
+            report_lines.append(
+                "사용 변수: " + ", ".join(st.session_state.features)
+            )
+        else:
+            report_lines.append("모델 평가 기록 없음")
+
+        report_lines.extend([
+            "",
+            f"저장된 실험 수: {len(experiments)}",
+            f"예측 기록 수: {len(predictions)}",
+            f"정비 기록 수: {len(maintenance)}"
+        ])
+
+        report_text = "\n".join(report_lines)
 
         st.download_button(
             "분석 보고서 TXT 다운로드",
-            "\n".join(report),
-            "analysis_report.txt",
-            "text/plain"
+            data=report_text.encode("utf-8-sig"),
+            file_name="industrial_ai_report.txt",
+            mime="text/plain"
         )
 
-        if st.button("현재 분석 데이터 CSV 다운로드"):
+        st.download_button(
+            "현재 데이터 CSV 다운로드",
+            data=df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="analysis_data.csv",
+            mime="text/csv"
+        )
+
+        if not experiments.empty:
             st.download_button(
-                "CSV 저장",
-                df.to_csv(
-                    index=False
-                ).encode("utf-8-sig"),
-                "analysis_data.csv",
-                "text/csv"
+                "실험 기록 CSV 다운로드",
+                data=experiments.to_csv(index=False).encode("utf-8-sig"),
+                file_name="experiment_history.csv",
+                mime="text/csv"
             )
 
-
-# =====================================================
-# 하단 정보
-# =====================================================
-
 st.sidebar.divider()
-st.sidebar.caption("AI4I 2020 Predictive Maintenance")
-st.sidebar.caption("Industrial Engineering Project")
+st.sidebar.caption("Industrial AI Tool Wear Monitoring")
+st.sidebar.caption("Prototype for educational use")
