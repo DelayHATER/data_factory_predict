@@ -51,43 +51,297 @@ NUMERIC_FEATURES = [
     "Tool wear [min]"
 ]
 
+
 st.markdown("""
 <style>
+/* =====================================
+   GLOBAL THEME
+===================================== */
+
+:root {
+    --bg: #0b1120;
+    --sidebar: #0e1728;
+    --panel: #141f33;
+    --panel-hover: #1a2940;
+    --border: #263750;
+    --accent: #38bdf8;
+    --accent-dark: #0284c7;
+    --text: #f8fafc;
+    --muted: #cbd5e1;
+}
+
 .stApp {
-    background-color: #0b1420;
-    color: #e6edf3;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Pretendard", "Noto Sans KR", sans-serif;
 }
+
+/* 모든 기본 텍스트 흰색 계열 */
+
+html, body, [class*="css"],
+p, span, label, li, strong, small,
+div, h1, h2, h3, h4, h5, h6 {
+    color: var(--text);
+}
+
+/* 설명 및 보조 텍스트 */
+
+.stCaption, [data-testid="stCaptionContainer"],
+small {
+    color: var(--muted) !important;
+}
+
+/* =====================================
+   MAIN LAYOUT
+===================================== */
+
+.block-container {
+    padding-top: 2.2rem;
+    padding-bottom: 3rem;
+    max-width: 1500px;
+}
+
+/* =====================================
+   SIDEBAR
+===================================== */
+
 [data-testid="stSidebar"] {
-    background-color: #101e2d;
-    border-right: 1px solid #263b50;
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
 }
-h1, h2, h3 {
-    color: #e8f1fa;
+
+[data-testid="stSidebar"] * {
+    color: #f8fafc !important;
 }
-.metric-card {
-    background: #14263a;
-    border: 1px solid #29435d;
-    padding: 18px;
-    border-radius: 12px;
+
+[data-testid="stSidebar"] h1 {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 1px;
 }
-div[data-testid="stMetric"] {
-    background: #14263a;
-    border: 1px solid #29435d;
-    padding: 15px;
+
+[data-testid="stSidebar"] [role="radiogroup"] label {
+    background: transparent;
+    border-radius: 8px;
+    padding: 9px 12px;
+    transition: 0.2s;
+}
+
+[data-testid="stSidebar"] [role="radiogroup"] label:hover {
+    background: #1c2d45;
+}
+
+/* =====================================
+   HEADINGS
+===================================== */
+
+h1 {
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.8px;
+    color: #ffffff !important;
+}
+
+h2 {
+    font-size: 1.4rem !important;
+    font-weight: 700 !important;
+    color: #f8fafc !important;
+}
+
+h3 {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #e2e8f0 !important;
+}
+
+/* =====================================
+   CARDS AND METRICS
+===================================== */
+
+[data-testid="stMetric"] {
+    background: linear-gradient(145deg, #17253a, #111d30);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    padding: 18px 20px;
+    box-shadow: 0 5px 18px rgba(0,0,0,0.16);
+}
+
+[data-testid="stMetricLabel"] {
+    color: #cbd5e1 !important;
+    font-size: 0.9rem;
+}
+
+[data-testid="stMetricValue"] {
+    color: #ffffff !important;
+    font-weight: 750;
+}
+
+[data-testid="stMetricDelta"] {
+    color: #7dd3fc !important;
+}
+
+/* =====================================
+   BUTTONS
+===================================== */
+
+.stButton > button,
+.stDownloadButton > button {
+    background: #147da5;
+    color: #ffffff !important;
+    border: 1px solid #2496bd;
+    border-radius: 9px;
+    padding: 0.55rem 1rem;
+    font-weight: 650;
+    transition: all 0.2s ease;
+}
+
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    background: #1598c5;
+    border-color: #38bdf8;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+}
+
+.stButton > button p,
+.stDownloadButton > button p {
+    color: #ffffff !important;
+}
+
+/* =====================================
+   INPUTS
+===================================== */
+
+.stTextInput input,
+.stNumberInput input,
+.stTextArea textarea,
+[data-baseweb="select"] *,
+[data-baseweb="input"] *,
+[data-baseweb="textarea"] * {
+    background-color: #101c2e !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    border-color: #344861 !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #94a3b8 !important;
+    -webkit-text-fill-color: #94a3b8 !important;
+}
+
+[data-baseweb="select"] > div {
+    background-color: #101c2e !important;
+    border-color: #344861 !important;
+}
+
+[data-baseweb="popover"],
+[data-baseweb="menu"],
+[data-baseweb="menu"] li {
+    background-color: #17253a !important;
+    color: #ffffff !important;
+}
+
+[data-baseweb="menu"] li:hover {
+    background-color: #263b56 !important;
+}
+
+/* =====================================
+   SLIDERS AND CHECKBOXES
+===================================== */
+
+.stSlider label,
+.stCheckbox label,
+.stRadio label,
+.stMultiSelect label,
+.stSelectbox label,
+.stNumberInput label,
+.stTextInput label,
+.stTextArea label {
+    color: #f1f5f9 !important;
+}
+
+[data-testid="stSlider"] [data-testid="stTickBarMin"],
+[data-testid="stSlider"] [data-testid="stTickBarMax"] {
+    color: #cbd5e1 !important;
+}
+
+/* =====================================
+   DATAFRAME / TABLE
+===================================== */
+
+[data-testid="stDataFrame"],
+[data-testid="stTable"] {
+    background: #121e31;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+[data-testid="stDataFrame"] *,
+[data-testid="stTable"] * {
+    color: #f8fafc !important;
+}
+
+/* =====================================
+   TABS
+===================================== */
+
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: #cbd5e1 !important;
+    background: transparent;
+}
+
+.stTabs [aria-selected="true"] {
+    color: #7dd3fc !important;
+    border-bottom: 2px solid #38bdf8 !important;
+}
+
+/* =====================================
+   ALERTS / EXPANDERS
+===================================== */
+
+[data-testid="stAlert"] {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+}
+
+[data-testid="stExpander"] {
+    background: #121e31;
+    border: 1px solid var(--border);
     border-radius: 10px;
 }
-.stButton > button {
-    background-color: #176b87;
-    color: white;
-    border: none;
-    border-radius: 7px;
+
+/* =====================================
+   DIVIDERS / SCROLLBAR
+===================================== */
+
+hr {
+    border-color: #263750 !important;
 }
-.stButton > button:hover {
-    background-color: #2186a5;
-    color: white;
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
+
+::-webkit-scrollbar-track {
+    background: #0b1120;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #344861;
+    border-radius: 10px;
+}
+
 </style>
 """, unsafe_allow_html=True)
+
 
 
 # =========================================================
